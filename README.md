@@ -178,6 +178,46 @@ Format cells in the Excel sheet with style information
         - `numFmt`: Custom number format string
         - `decimalPlaces`: Number of decimal places (0-30)
 
+### `excel_draw_cad_box`
+
+Draw a CAD-style bordered box (e.g. a door or window frame outline) over a cell range, optionally split into multiple leaves (panels) by vertical divider lines. Verified automatically the same way as `excel_draw_hardware_icon` — see [Automatic verification](#automatic-verification).
+
+**Arguments:**
+- `fileAbsolutePath`
+    - Absolute path to the Excel file
+- `sheetName`
+    - Sheet name where the box is drawn
+- `range`
+    - Range of cells the box outline spans (e.g., "B2:F20"). Must span more than one row and column.
+- `leaves`
+    - Number of leaves (panels) to divide the box into with vertical divider lines (e.g. 2 for a double door). [default: 1]
+- `label`
+    - Optional text (e.g. a model number) placed in the center cell of the box
+- `lineColor`
+    - Hex color of the box outline and divider lines. [default: "#000000"]
+- `lineStyle`
+    - Border line style of the box outline and divider lines. [default: "continuous"]
+
+### `excel_add_measurement_table`
+
+Put a height/width measurement table on the Excel sheet (e.g. door or window dimensions), with optional extra rows (thickness, leaf count, etc.). Verified automatically — see [Automatic verification](#automatic-verification).
+
+**Arguments:**
+- `fileAbsolutePath`
+    - Absolute path to the Excel file
+- `sheetName`
+    - Sheet name where the table is placed
+- `cell`
+    - Top-left anchor cell of the table (e.g. "H2"). The table occupies two columns starting here.
+- `title`
+    - Title text placed above the table. [default: "Dimensions"]
+- `widthMm`
+    - Width measurement, in millimeters
+- `heightMm`
+    - Height measurement, in millimeters
+- `extraFields`
+    - Additional measurement rows appended below width/height, each `{ "label": string, "value": number }`
+
 ### `excel_draw_hardware_icon`
 
 Draw a predefined door/window hardware icon (hinge, handle, lock, etc.) onto the Excel sheet as vector shapes.
@@ -197,12 +237,12 @@ The tool automatically re-reads the saved file afterward to verify the icon's sh
 
 <h2 id="automatic-verification">Automatic verification</h2>
 
-`excel_draw_hardware_icon` does not just trust that the write succeeded because no error was returned. After saving, it independently re-opens the `.xlsx` file as a raw OOXML zip archive and parses the real `xl/drawings/drawingN.xml` part to confirm:
-- the expected number of shapes were actually persisted,
-- they have the expected preset geometries (`rect`/`roundRect`/`ellipse`), and
-- they are anchored at the requested cell.
+The CAD-drawing tools (`excel_draw_hardware_icon`, `excel_draw_cad_box`, `excel_add_measurement_table`) do not just trust that a write succeeded because no error was returned. After saving, each one independently re-reads back what was actually persisted to disk and reports a `✅ VERIFIED` or `❌ NOT VERIFIED` line (with details on any mismatch) in its response:
 
-This check works the same way regardless of which backend wrote the file (cross-platform `excelize`, or live Excel via OLE automation on Windows), since both ultimately save the same OOXML drawing format. The tool's response includes a `✅ VERIFIED` or `❌ NOT VERIFIED` line reporting the outcome — if verification fails, investigate before assuming the icon was drawn correctly (e.g. re-run `excel_screen_capture` on Windows for a visual check, or re-read the sheet).
+- **`excel_draw_hardware_icon`** re-opens the `.xlsx` file as a raw OOXML zip archive and parses the real `xl/drawings/drawingN.xml` part to confirm the expected number of shapes were persisted, with the expected preset geometries (`rect`/`roundRect`/`ellipse`), anchored at the requested cell. This bypasses excelize's in-memory state entirely — it reads the same bytes Excel itself would read.
+- **`excel_draw_cad_box`** and **`excel_add_measurement_table`** re-open the saved file through the normal `excel.OpenFile` path and re-read the corner/divider cell styles or table cell values back with `GetCellStyle`/`GetValue`, comparing them against what was requested.
+
+All three checks work the same way regardless of which backend wrote the file (cross-platform `excelize`, or live Excel via OLE automation on Windows), since both ultimately save the same OOXML format. If verification fails, investigate before assuming the drawing/table was written correctly (e.g. re-run `excel_screen_capture` on Windows for a visual check, or re-read the sheet with `excel_read_sheet`).
 
 <h2 id="configuration">Configuration</h2>
 

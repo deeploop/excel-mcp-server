@@ -27,6 +27,8 @@ func New(version string) *ExcelServer {
 	tools.AddExcelCopySheetTool(s.server)
 	tools.AddExcelFormatRangeTool(s.server)
 	tools.AddExcelDrawHardwareIconTool(s.server)
+	tools.AddExcelDrawCadBoxTool(s.server)
+	tools.AddExcelAddMeasurementTableTool(s.server)
 	return s
 }
 
