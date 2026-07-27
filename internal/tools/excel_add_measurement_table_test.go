@@ -1,10 +1,12 @@
 package tools
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/negokaz/excel-mcp-server/internal/excel"
 	"github.com/xuri/excelize/v2"
 )
@@ -50,6 +52,41 @@ func TestAddMeasurementTableToolVerifiesItsOwnOutput(t *testing.T) {
 	}
 	if v, _ := worksheet.GetValue("H6"); v != "Thickness (mm)" {
 		t.Errorf("expected H6 to be 'Thickness (mm)', got %q", v)
+	}
+}
+
+// TestHandleAddMeasurementTableParsesRawJSONArguments calls the actual MCP
+// entry point (handleAddMeasurementTable) with arguments shaped like a real
+// decoded JSON-RPC tools/call request, including the "extraFields" array of
+// objects. See the equivalent hardware-icon test for why this matters: a
+// zog schema/struct-field type mismatch only panics through this path, not
+// when calling addMeasurementTable directly with Go values.
+func TestHandleAddMeasurementTableParsesRawJSONArguments(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "measurement_table.xlsx")
+	if err := excelize.NewFile().SaveAs(filePath); err != nil {
+		t.Fatalf("failed to create fixture workbook: %v", err)
+	}
+
+	request := mcp.CallToolRequest{}
+	request.Params.Name = "excel_add_measurement_table"
+	request.Params.Arguments = map[string]any{
+		"fileAbsolutePath": filePath,
+		"sheetName":        "Sheet1",
+		"cell":             "H2",
+		"title":            "Door Dimensions",
+		"widthMm":          float64(900),
+		"heightMm":         float64(2100),
+		"extraFields": []any{
+			map[string]any{"label": "Thickness (mm)", "value": float64(45)},
+		},
+	}
+
+	result, err := handleAddMeasurementTable(context.Background(), request)
+	if err != nil {
+		t.Fatalf("handleAddMeasurementTable failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected success, got error result: %s", resultText(t, result))
 	}
 }
 

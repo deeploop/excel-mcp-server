@@ -14,13 +14,13 @@ import (
 )
 
 type ExcelDrawCadBoxArguments struct {
-	FileAbsolutePath string `zog:"fileAbsolutePath"`
-	SheetName        string `zog:"sheetName"`
-	Range            string `zog:"range"`
-	Leaves           int    `zog:"leaves"`
-	Label            string `zog:"label"`
-	LineColor        string `zog:"lineColor"`
-	LineStyle        string `zog:"lineStyle"`
+	FileAbsolutePath string            `zog:"fileAbsolutePath"`
+	SheetName        string            `zog:"sheetName"`
+	Range            string            `zog:"range"`
+	Leaves           int               `zog:"leaves"`
+	Label            string            `zog:"label"`
+	LineColor        string            `zog:"lineColor"`
+	LineStyle        excel.BorderStyle `zog:"lineStyle"`
 }
 
 var excelDrawCadBoxArgumentsSchema = z.Struct(z.Shape{
@@ -70,7 +70,7 @@ func handleDrawCadBox(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	if issues := excelDrawCadBoxArgumentsSchema.Parse(request.Params.Arguments, &args); len(issues) != 0 {
 		return imcp.NewToolResultZogIssueMap(issues), nil
 	}
-	return drawCadBox(args.FileAbsolutePath, args.SheetName, args.Range, args.Leaves, args.Label, args.LineColor, excel.BorderStyle(args.LineStyle))
+	return drawCadBox(args.FileAbsolutePath, args.SheetName, args.Range, args.Leaves, args.Label, args.LineColor, args.LineStyle)
 }
 
 func drawCadBox(fileAbsolutePath string, sheetName string, rangeStr string, leaves int, label string, lineColor string, lineStyle excel.BorderStyle) (*mcp.CallToolResult, error) {

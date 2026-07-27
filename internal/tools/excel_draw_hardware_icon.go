@@ -12,11 +12,11 @@ import (
 )
 
 type ExcelDrawHardwareIconArguments struct {
-	FileAbsolutePath string  `zog:"fileAbsolutePath"`
-	SheetName        string  `zog:"sheetName"`
-	Cell             string  `zog:"cell"`
-	IconType         string  `zog:"iconType"`
-	SizePoints       float64 `zog:"sizePoints"`
+	FileAbsolutePath string                 `zog:"fileAbsolutePath"`
+	SheetName        string                 `zog:"sheetName"`
+	Cell             string                 `zog:"cell"`
+	IconType         excel.HardwareIconType `zog:"iconType"`
+	SizePoints       float64                `zog:"sizePoints"`
 }
 
 var excelDrawHardwareIconArgumentsSchema = z.Struct(z.Shape{
@@ -59,7 +59,7 @@ func handleDrawHardwareIcon(ctx context.Context, request mcp.CallToolRequest) (*
 	if issues := excelDrawHardwareIconArgumentsSchema.Parse(request.Params.Arguments, &args); len(issues) != 0 {
 		return imcp.NewToolResultZogIssueMap(issues), nil
 	}
-	return drawHardwareIcon(args.FileAbsolutePath, args.SheetName, args.Cell, excel.HardwareIconType(args.IconType), args.SizePoints)
+	return drawHardwareIcon(args.FileAbsolutePath, args.SheetName, args.Cell, args.IconType, args.SizePoints)
 }
 
 func drawHardwareIcon(fileAbsolutePath string, sheetName string, cell string, iconType excel.HardwareIconType, sizePoints float64) (*mcp.CallToolResult, error) {
