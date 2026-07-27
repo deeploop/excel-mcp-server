@@ -8,9 +8,18 @@ before:
     - go generate ./...
 
 builds:
-  - env:
+  - id: excel-mcp-server
+    env:
       - CGO_ENABLED=0
     main: ./cmd/excel-mcp-server/main.go
+    goos:
+      - linux
+      - windows
+      - darwin
+  - id: excel-mcp-remote-worker
+    env:
+      - CGO_ENABLED=0
+    main: ./cmd/excel-mcp-remote-worker/main.go
     goos:
       - linux
       - windows

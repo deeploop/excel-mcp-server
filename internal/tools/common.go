@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"html"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -429,12 +430,42 @@ func createHTMLTableWithStyle(startCol int, startRow int, endCol int, endRow int
 	return &finalResultStr, nil
 }
 
+// AbsolutePathTest rejects non-absolute file paths, and - when
+// EXCEL_MCP_ALLOWED_ROOT is set - also rejects any path that resolves
+// outside that root. The env var is unset (no restriction) by default,
+// which preserves today's local-trust stdio behavior; the remote HTTP
+// worker (cmd/excel-mcp-remote-worker) sets it so a request arriving from
+// the network cannot read or write arbitrary files on the host PC.
 func AbsolutePathTest() z.Test[*string] {
 	return z.Test[*string]{
 		Func: func(path *string, ctx z.Ctx) {
 			if !filepath.IsAbs(*path) {
 				ctx.AddIssue(ctx.Issue().SetMessage(fmt.Sprintf("Path '%s' is not absolute", *path)))
+				return
+			}
+			if allowedRoot := os.Getenv("EXCEL_MCP_ALLOWED_ROOT"); allowedRoot != "" {
+				if !isWithinRoot(*path, allowedRoot) {
+					ctx.AddIssue(ctx.Issue().SetMessage(fmt.Sprintf("Path '%s' is outside the allowed root", *path)))
+				}
 			}
 		},
 	}
+}
+
+// isWithinRoot reports whether path is equal to, or a descendant of, root
+// once both are cleaned to absolute, separator-normalized form. It compares
+// path segments (not a raw string prefix) so a sibling directory that
+// merely shares a name prefix with root (e.g. "/data-other" vs "/data")
+// cannot be mistaken for being inside it.
+func isWithinRoot(path string, root string) bool {
+	cleanedPath := filepath.Clean(path)
+	cleanedRoot := filepath.Clean(root)
+	rel, err := filepath.Rel(cleanedRoot, cleanedPath)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

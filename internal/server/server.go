@@ -29,9 +29,21 @@ func New(version string) *ExcelServer {
 	tools.AddExcelDrawHardwareIconTool(s.server)
 	tools.AddExcelDrawCadBoxTool(s.server)
 	tools.AddExcelAddMeasurementTableTool(s.server)
+	tools.AddExcelOoxmlResolveSheetTool(s.server)
+	tools.AddExcelOoxmlInspectRelsTool(s.server)
+	tools.AddExcelOoxmlExtractDrawingsTool(s.server)
+	tools.AddExcelValidateTemplateTool(s.server)
 	return s
 }
 
 func (s *ExcelServer) Start() error {
 	return server.ServeStdio(s.server)
+}
+
+// MCPServer exposes the underlying *server.MCPServer so alternate
+// transports (e.g. the Streamable HTTP transport used by
+// cmd/excel-mcp-remote-worker) can serve the exact same tool set as the
+// default stdio transport, with no duplicated tool registration.
+func (s *ExcelServer) MCPServer() *server.MCPServer {
+	return s.server
 }
