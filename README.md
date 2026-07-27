@@ -178,6 +178,32 @@ Format cells in the Excel sheet with style information
         - `numFmt`: Custom number format string
         - `decimalPlaces`: Number of decimal places (0-30)
 
+### `excel_draw_hardware_icon`
+
+Draw a predefined door/window hardware icon (hinge, handle, lock, etc.) onto the Excel sheet as vector shapes.
+The tool automatically re-reads the saved file afterward to verify the icon's shapes were actually persisted correctly, and reports the verification result — see [Automatic verification](#automatic-verification) below.
+
+**Arguments:**
+- `fileAbsolutePath`
+    - Absolute path to the Excel file
+- `sheetName`
+    - Sheet name where the icon is drawn
+- `cell`
+    - Anchor cell for the icon's top-left corner (e.g. "C5")
+- `iconType`
+    - Type of hardware icon to draw. One of: `hinge`, `doorHandle`, `deadbolt`, `lockCylinder`, `doorCloser`, `peephole`
+- `sizePoints`
+    - Width/height of the icon's bounding square, in points. [default: 36]
+
+<h2 id="automatic-verification">Automatic verification</h2>
+
+`excel_draw_hardware_icon` does not just trust that the write succeeded because no error was returned. After saving, it independently re-opens the `.xlsx` file as a raw OOXML zip archive and parses the real `xl/drawings/drawingN.xml` part to confirm:
+- the expected number of shapes were actually persisted,
+- they have the expected preset geometries (`rect`/`roundRect`/`ellipse`), and
+- they are anchored at the requested cell.
+
+This check works the same way regardless of which backend wrote the file (cross-platform `excelize`, or live Excel via OLE automation on Windows), since both ultimately save the same OOXML drawing format. The tool's response includes a `✅ VERIFIED` or `❌ NOT VERIFIED` line reporting the outcome — if verification fails, investigate before assuming the icon was drawn correctly (e.g. re-run `excel_screen_capture` on Windows for a visual check, or re-read the sheet).
+
 <h2 id="configuration">Configuration</h2>
 
 You can change the MCP Server behaviors by the following environment variables:

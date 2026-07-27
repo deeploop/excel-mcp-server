@@ -45,6 +45,12 @@ type Worksheet interface {
 	CapturePicture(captureRange string) (string, error)
 	// AddTable adds a table to this worksheet.
 	AddTable(tableRange, tableName string) error
+	// DrawHardwareIcon draws a predefined hardware icon (e.g. hinge, door
+	// handle, lock) as a small group of vector shapes anchored at the
+	// specified cell. The returned result can be passed to
+	// VerifyHardwareIcon after Save() to independently confirm the icon
+	// was actually persisted to the file.
+	DrawHardwareIcon(cell string, iconType HardwareIconType, opts HardwareIconOptions) (*HardwareIconResult, error)
 	// GetCellStyle gets style information for the specified cell.
 	GetCellStyle(cell string) (*CellStyle, error)
 	// SetCellStyle sets style for the specified cell.

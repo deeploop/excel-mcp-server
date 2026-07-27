@@ -2,6 +2,7 @@ package excel
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,6 +209,60 @@ func (w *ExcelizeWorksheet) AddTable(tableRange, tableName string) error {
 		return err
 	}
 	return nil
+}
+
+// pixelsPerPoint is the standard 96 DPI conversion factor Excel/OOXML use
+// between points (used for font/line sizes) and pixels (used for drawing
+// object offsets and sizes).
+const pixelsPerPoint = 96.0 / 72.0
+
+func (w *ExcelizeWorksheet) DrawHardwareIcon(cell string, iconType HardwareIconType, opts HardwareIconOptions) (*HardwareIconResult, error) {
+	primitives, err := HardwareIconPrimitives(iconType)
+	if err != nil {
+		return nil, err
+	}
+
+	sizePoints := opts.SizePoints
+	if sizePoints <= 0 {
+		sizePoints = 36
+	}
+	sizePixels := sizePoints * pixelsPerPoint
+
+	expectedShapeTypes := make([]string, 0, len(primitives))
+	for _, p := range primitives {
+		width := uint(math.Round((p.X1 - p.X0) * sizePixels))
+		height := uint(math.Round((p.Y1 - p.Y0) * sizePixels))
+		if width == 0 {
+			width = 1
+		}
+		if height == 0 {
+			height = 1
+		}
+		lineWidth := 0.75
+		shape := &excelize.Shape{
+			Cell:   cell,
+			Type:   string(p.Shape),
+			Width:  width,
+			Height: height,
+			Format: excelize.GraphicOptions{
+				OffsetX: int(math.Round(p.X0 * sizePixels)),
+				OffsetY: int(math.Round(p.Y0 * sizePixels)),
+			},
+			Fill: excelize.Fill{Color: []string{p.FillColor}},
+			Line: excelize.ShapeLine{Color: p.LineColor, Width: &lineWidth},
+		}
+		if err := w.file.AddShape(w.sheetName, shape); err != nil {
+			return nil, fmt.Errorf("failed to draw hardware icon primitive: %w", err)
+		}
+		expectedShapeTypes = append(expectedShapeTypes, string(p.Shape))
+	}
+
+	return &HardwareIconResult{
+		SheetName:          w.sheetName,
+		AnchorCell:         cell,
+		IconType:           iconType,
+		ExpectedShapeTypes: expectedShapeTypes,
+	}, nil
 }
 
 func (w *ExcelizeWorksheet) GetCellStyle(cell string) (*CellStyle, error) {

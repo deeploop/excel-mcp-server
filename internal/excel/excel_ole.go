@@ -390,6 +390,96 @@ func (o *OleWorksheet) AddTable(tableRange string, tableName string) error {
 	return err
 }
 
+// primitiveShapeToMsoAutoShapeType maps a PrimitiveShapeType to the
+// corresponding msoAutoShapeType constant used by Excel's
+// Shapes.AddShape COM method.
+// https://learn.microsoft.com/en-us/office/vba/api/office.msoautoshapetype
+func primitiveShapeToMsoAutoShapeType(shape PrimitiveShapeType) int32 {
+	switch shape {
+	case PrimitiveRect:
+		return 1 // msoShapeRectangle
+	case PrimitiveRoundRect:
+		return 5 // msoShapeRoundedRectangle
+	case PrimitiveEllipse:
+		return 9 // msoShapeOval
+	default:
+		return 1 // msoShapeRectangle
+	}
+}
+
+func (o *OleWorksheet) DrawHardwareIcon(cell string, iconType HardwareIconType, opts HardwareIconOptions) (*HardwareIconResult, error) {
+	primitives, err := HardwareIconPrimitives(iconType)
+	if err != nil {
+		return nil, err
+	}
+
+	sizePoints := opts.SizePoints
+	if sizePoints <= 0 {
+		sizePoints = 36
+	}
+
+	anchorRange := oleutil.MustGetProperty(o.worksheet, "Range", cell).ToIDispatch()
+	defer anchorRange.Release()
+	left := oleutil.MustGetProperty(anchorRange, "Left").Value().(float64)
+	top := oleutil.MustGetProperty(anchorRange, "Top").Value().(float64)
+
+	shapes := oleutil.MustGetProperty(o.worksheet, "Shapes").ToIDispatch()
+	defer shapes.Release()
+
+	expectedShapeTypes := make([]string, 0, len(primitives))
+	for _, p := range primitives {
+		shapeLeft := left + p.X0*sizePoints
+		shapeTop := top + p.Y0*sizePoints
+		shapeWidth := (p.X1 - p.X0) * sizePoints
+		shapeHeight := (p.Y1 - p.Y0) * sizePoints
+
+		shapeVar, err := oleutil.CallMethod(shapes, "AddShape",
+			primitiveShapeToMsoAutoShapeType(p.Shape), shapeLeft, shapeTop, shapeWidth, shapeHeight)
+		if err != nil {
+			return nil, fmt.Errorf("failed to draw hardware icon primitive: %w", err)
+		}
+		shape := shapeVar.ToIDispatch()
+		if err := setShapeColors(shape, p.FillColor, p.LineColor); err != nil {
+			shape.Release()
+			return nil, fmt.Errorf("failed to style hardware icon primitive: %w", err)
+		}
+		shape.Release()
+
+		expectedShapeTypes = append(expectedShapeTypes, string(p.Shape))
+	}
+
+	name, err := o.Name()
+	if err != nil {
+		return nil, err
+	}
+	return &HardwareIconResult{
+		SheetName:          name,
+		AnchorCell:         cell,
+		IconType:           iconType,
+		ExpectedShapeTypes: expectedShapeTypes,
+	}, nil
+}
+
+// setShapeColors sets the fill and line color of a Shape COM object.
+func setShapeColors(shape *ole.IDispatch, fillColorHex string, lineColorHex string) error {
+	fill := oleutil.MustGetProperty(shape, "Fill").ToIDispatch()
+	defer fill.Release()
+	fillColor := oleutil.MustGetProperty(fill, "ForeColor").ToIDispatch()
+	defer fillColor.Release()
+	if _, err := oleutil.PutProperty(fillColor, "RGB", rgbToBgr("#"+fillColorHex)); err != nil {
+		return err
+	}
+
+	line := oleutil.MustGetProperty(shape, "Line").ToIDispatch()
+	defer line.Release()
+	lineColor := oleutil.MustGetProperty(line, "ForeColor").ToIDispatch()
+	defer lineColor.Release()
+	if _, err := oleutil.PutProperty(lineColor, "RGB", rgbToBgr("#"+lineColorHex)); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (o *OleWorksheet) GetCellStyle(cell string) (*CellStyle, error) {
 	rng := oleutil.MustGetProperty(o.worksheet, "Range", cell).ToIDispatch()
 	defer rng.Release()
